@@ -1,4 +1,4 @@
-const CACHE_NAME = "vitalia-sensor-v2";
+const CACHE_NAME = "vitalia-sensor-v3";
 const URLS = ["/", "/static/css/styles.css", "/static/js/sensors.js", "/static/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

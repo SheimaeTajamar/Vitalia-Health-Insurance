@@ -6,6 +6,11 @@ const statusText = document.getElementById("statusText");
 const envText = document.getElementById("envText");
 const installBtn = document.getElementById("installBtn");
 
+const historyWindow = document.getElementById("historyWindow");
+const historyLabel = document.getElementById("historyLabel");
+const accChart = document.getElementById("accChart");
+const gyroChart = document.getElementById("gyroChart");
+
 const accX = document.getElementById("accX");
 const accY = document.getElementById("accY");
 const accZ = document.getElementById("accZ");
@@ -21,6 +26,10 @@ let lastRender = 0;
 let eventCount = 0;
 let noDataTimer = null;
 let hasRotationRateData = false;
+let historyWindowSec = Number(historyWindow.value);
+
+const history = [];
+const maxHistoryPoints = 6000;
 
 const latest = {
   acc: { x: 0, y: 0, z: 0 },
@@ -52,6 +61,110 @@ function setEnvironmentText() {
   envText.textContent = "Entorno: navegador compatible. Puedes solicitar permisos.";
 }
 
+function accMagnitude() {
+  return Math.sqrt((latest.acc.x || 0) ** 2 + (latest.acc.y || 0) ** 2 + (latest.acc.z || 0) ** 2);
+}
+
+function gyroMagnitude() {
+  return Math.sqrt(
+    (latest.gyro.alpha || 0) ** 2 + (latest.gyro.beta || 0) ** 2 + (latest.gyro.gamma || 0) ** 2,
+  );
+}
+
+function pushHistory(tsMs) {
+  history.push({
+    tsMs,
+    accMag: accMagnitude(),
+    gyroMag: gyroMagnitude(),
+  });
+
+  const minTs = tsMs - historyWindowSec * 1000;
+  while (history.length > 0 && history[0].tsMs < minTs) {
+    history.shift();
+  }
+  if (history.length > maxHistoryPoints) {
+    history.splice(0, history.length - maxHistoryPoints);
+  }
+}
+
+function setupCanvas(canvas) {
+  const ratio = window.devicePixelRatio || 1;
+  const width = Math.max(320, Math.floor(canvas.clientWidth));
+  const height = Math.max(180, Math.floor(canvas.clientHeight));
+  canvas.width = Math.floor(width * ratio);
+  canvas.height = Math.floor(height * ratio);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  return { ctx, width, height };
+}
+
+function drawChart(canvas, key, color, label) {
+  const { ctx, width, height } = setupCanvas(canvas);
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = "rgba(200, 220, 240, 0.25)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(38, 10);
+  ctx.lineTo(38, height - 24);
+  ctx.lineTo(width - 8, height - 24);
+  ctx.stroke();
+
+  if (history.length < 2) {
+    ctx.fillStyle = "rgba(234, 244, 255, 0.85)";
+    ctx.font = "12px Segoe UI";
+    ctx.fillText("Esperando datos...", 46, Math.floor(height / 2));
+    return;
+  }
+
+  let maxVal = 0;
+  for (const point of history) {
+    if (point[key] > maxVal) {
+      maxVal = point[key];
+    }
+  }
+  const minVal = 0;
+  const yMax = maxVal > 0.01 ? maxVal * 1.1 : 1;
+
+  const t0 = history[0].tsMs;
+  const t1 = history[history.length - 1].tsMs;
+  const span = Math.max(1, t1 - t0);
+
+  const plotLeft = 38;
+  const plotRight = width - 8;
+  const plotTop = 10;
+  const plotBottom = height - 24;
+  const plotWidth = plotRight - plotLeft;
+  const plotHeight = plotBottom - plotTop;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  history.forEach((point, idx) => {
+    const tx = (point.tsMs - t0) / span;
+    const ty = (point[key] - minVal) / (yMax - minVal);
+    const x = plotLeft + tx * plotWidth;
+    const y = plotBottom - ty * plotHeight;
+    if (idx === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(234, 244, 255, 0.95)";
+  ctx.font = "12px Segoe UI";
+  ctx.fillText(`${label}: ${history[history.length - 1][key].toFixed(2)}`, plotLeft, 22);
+  ctx.fillText(`max ${yMax.toFixed(2)}`, plotLeft, 36);
+  ctx.fillText(`${historyWindowSec}s`, plotRight - 34, plotBottom + 14);
+}
+
+function renderCharts() {
+  drawChart(accChart, "accMag", "#48d1cc", "Acc");
+  drawChart(gyroChart, "gyroMag", "#d4af37", "Gyro");
+}
+
 function renderData(timestampMs) {
   const minGapMs = 1000 / sampleHz;
   if (timestampMs - lastRender < minGapMs) {
@@ -64,31 +177,29 @@ function renderData(timestampMs) {
   gyroA.textContent = toFixed(latest.gyro.alpha);
   gyroB.textContent = toFixed(latest.gyro.beta);
   gyroG.textContent = toFixed(latest.gyro.gamma);
+  pushHistory(timestampMs);
+  renderCharts();
 }
 
 function onMotion(event) {
   eventCount += 1;
-
   const acc = event.acceleration || event.accelerationIncludingGravity;
   if (acc) {
     latest.acc.x = acc.x;
     latest.acc.y = acc.y;
     latest.acc.z = acc.z;
   }
-
   if (event.rotationRate) {
     hasRotationRateData = true;
     latest.gyro.alpha = event.rotationRate.alpha;
     latest.gyro.beta = event.rotationRate.beta;
     latest.gyro.gamma = event.rotationRate.gamma;
   }
-
   renderData(Date.now());
 }
 
 function onOrientation(event) {
   eventCount += 1;
-  // Fallback when rotationRate is unavailable: orientation angles.
   if (!hasRotationRateData) {
     latest.gyro.alpha = event.alpha;
     latest.gyro.beta = event.beta;
@@ -100,6 +211,7 @@ function onOrientation(event) {
 function startReading() {
   eventCount = 0;
   hasRotationRateData = false;
+  history.length = 0;
   window.addEventListener("devicemotion", onMotion);
   window.addEventListener("deviceorientation", onOrientation);
   readingActive = true;
@@ -108,9 +220,7 @@ function startReading() {
 
   noDataTimer = window.setTimeout(() => {
     if (readingActive && eventCount === 0) {
-      setStatus(
-        "sin eventos de sensores. Revisa HTTPS, permisos del sitio y que el navegador permita sensores de movimiento.",
-      );
+      setStatus("sin eventos de sensores. Revisa HTTPS, permisos del sitio y ajustes del navegador.");
     }
   }, 3000);
 }
@@ -135,7 +245,6 @@ async function requestSensorPermissions() {
   }
 
   try {
-    // iOS Safari requires explicit permission inside a user gesture.
     if (hasMotionApi && typeof DeviceMotionEvent.requestPermission === "function") {
       const motion = await DeviceMotionEvent.requestPermission();
       if (motion !== "granted") {
@@ -151,7 +260,7 @@ async function requestSensorPermissions() {
 
     permissionGranted = true;
     toggleBtn.disabled = false;
-    setStatus("permisos listos. Si no aparece popup, es normal en Android/Chrome.");
+    setStatus("permisos listos. Si no aparece popup, puede ser normal en Android/Chrome.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "error desconocido";
     setStatus(`error de permisos: ${message}`);
@@ -180,6 +289,19 @@ sampleRate.addEventListener("input", (event) => {
   }
 });
 
+historyWindow.addEventListener("input", (event) => {
+  historyWindowSec = Number(event.target.value);
+  historyLabel.textContent = String(historyWindowSec);
+  if (history.length > 0) {
+    const now = history[history.length - 1].tsMs;
+    const minTs = now - historyWindowSec * 1000;
+    while (history.length > 0 && history[0].tsMs < minTs) {
+      history.shift();
+    }
+  }
+  renderCharts();
+});
+
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   deferredPrompt = event;
@@ -204,4 +326,7 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+window.addEventListener("resize", () => renderCharts());
+
 setEnvironmentText();
+renderCharts();
