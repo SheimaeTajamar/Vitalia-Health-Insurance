@@ -1,0 +1,9 @@
+{
+  "name": "Vitalia Sensor",
+  "short_name": "Vitalia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#001f3f",
+  "theme_color": "#001f3f",
+  "description": "Lectura móvil de acelerómetro y giroscopio con tasa configurable."
+}

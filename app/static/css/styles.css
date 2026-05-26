@@ -1,0 +1,153 @@
+:root {
+  --navy: #001f3f;
+  --navy-soft: #0c2d52;
+  --aqua: #48d1cc;
+  --gold: #d4af37;
+  --white: #f9fbff;
+  --text: #eaf4ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 15% 10%, rgba(72, 209, 204, 0.2), transparent 35%),
+    radial-gradient(circle at 90% 20%, rgba(212, 175, 55, 0.18), transparent 30%),
+    linear-gradient(160deg, #001327 0%, #001f3f 45%, #0c2d52 100%);
+}
+
+.app-shell {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem;
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: 1.25rem;
+  animation: fade-in 700ms ease-out both;
+}
+
+.hero h1 {
+  margin: 0.35rem 0;
+  color: var(--white);
+}
+
+.tag {
+  margin: 0;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.subtitle {
+  margin: 0.35rem auto 0;
+  max-width: 680px;
+  color: #d2e8fb;
+}
+
+.card {
+  border: 1px solid rgba(72, 209, 204, 0.25);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  padding: 1rem;
+}
+
+.controls {
+  animation: fade-in 900ms ease-out both;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.72rem 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--aqua);
+  color: #012634;
+}
+
+.btn-secondary {
+  background: var(--gold);
+  color: #332300;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--aqua);
+  color: var(--white);
+}
+
+.rate-row,
+.install-row {
+  margin-top: 0.85rem;
+}
+
+input[type="range"] {
+  width: 100%;
+  margin-top: 0.35rem;
+  accent-color: var(--gold);
+}
+
+.metrics {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  animation: fade-in 1150ms ease-out both;
+}
+
+.metrics h2 {
+  margin-top: 0;
+  color: var(--aqua);
+  font-size: 1.05rem;
+}
+
+.metrics p {
+  margin: 0.25rem 0;
+}
+
+.footnote {
+  margin-top: 1rem;
+  color: #c8def1;
+  font-size: 0.92rem;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
