@@ -16,7 +16,7 @@
       <p class="tag">Vitalia Health Insurance</p>
       <h1>Lectura de sensores moviles</h1>
       <p class="subtitle">
-        Accede al acelerometro y giroscopio con permisos del navegador y ajusta la tasa de muestreo.
+        Accede al acelerometro y giroscopio con permisos del navegador y monitoreo IA en tiempo real.
       </p>
     </header>
 
@@ -26,58 +26,36 @@
         <button id="toggleBtn" class="btn btn-secondary" disabled>Iniciar lectura</button>
       </div>
 
-      <div class="rate-row">
-        <label for="sampleRate">Tasa de muestreo: <strong><span id="rateLabel">10</span> Hz</strong></label>
-        <input id="sampleRate" type="range" min="1" max="60" value="10" step="1">
-      </div>
-
       <div class="install-row">
         <button id="installBtn" class="btn btn-outline" hidden>Instalar acceso directo</button>
       </div>
     </section>
 
-    <section class="metrics">
-      <article class="card">
-        <h2>Aceleracion (m/s^2)</h2>
-        <p>X: <span id="accX">0.00</span></p>
-        <p>Y: <span id="accY">0.00</span></p>
-        <p>Z: <span id="accZ">0.00</span></p>
-      </article>
-
-      <article class="card">
-        <h2>Giroscopio (deg/s)</h2>
-        <p>Alpha: <span id="gyroA">0.00</span></p>
-        <p>Beta: <span id="gyroB">0.00</span></p>
-        <p>Gamma: <span id="gyroG">0.00</span></p>
-      </article>
-    </section>
-
     <section class="card chart-card">
       <div class="chart-head">
         <h2>Visualizacion temporal</h2>
-        <label for="historyWindow">
-          Ventana: <strong><span id="historyLabel">15</span>s</strong>
-        </label>
       </div>
-      <input id="historyWindow" type="range" min="5" max="30" value="15" step="1">
-      <p class="chart-note">Historial en vivo con maximo de 30 segundos.</p>
+
+      <div class="action-content">
+        <img id="actionIcon" src="/static/icons/person-standing.svg" alt="icono de accion" width="80" height="80">
+        <p id="actionLabel">Esperando datos</p>
+      </div>
 
       <div class="chart-grid">
         <div>
-          <h3>Aceleracion | magnitud</h3>
+          <h3>Aceleracion</h3>
           <canvas id="accChart" width="760" height="220"></canvas>
         </div>
         <div>
-          <h3>Giroscopio | magnitud</h3>
+          <h3>Giroscopio</h3>
           <canvas id="gyroChart" width="760" height="220"></canvas>
         </div>
       </div>
     </section>
 
-    <footer class="footnote">
-      <p id="statusText">Estado: pendiente de permisos.</p>
-      <p id="envText">Entorno: comprobando compatibilidad...</p>
-      <p>En iPhone, abre en Safari y permite movimiento/orientacion cuando se solicite.</p>
+    <footer class="footnote" style="display:none">
+      <p id="statusText"></p>
+      <p id="envText"></p>
     </footer>
   </main>
 

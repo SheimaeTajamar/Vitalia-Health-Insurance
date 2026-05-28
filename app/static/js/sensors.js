@@ -1,35 +1,32 @@
 const permissionBtn = document.getElementById("permissionBtn");
 const toggleBtn = document.getElementById("toggleBtn");
-const sampleRate = document.getElementById("sampleRate");
-const rateLabel = document.getElementById("rateLabel");
 const statusText = document.getElementById("statusText");
 const envText = document.getElementById("envText");
 const installBtn = document.getElementById("installBtn");
 
-const historyWindow = document.getElementById("historyWindow");
-const historyLabel = document.getElementById("historyLabel");
 const accChart = document.getElementById("accChart");
 const gyroChart = document.getElementById("gyroChart");
+const actionIcon = document.getElementById("actionIcon");
+const actionLabel = document.getElementById("actionLabel");
 
-const accX = document.getElementById("accX");
-const accY = document.getElementById("accY");
-const accZ = document.getElementById("accZ");
-const gyroA = document.getElementById("gyroA");
-const gyroB = document.getElementById("gyroB");
-const gyroG = document.getElementById("gyroG");
+const SAMPLE_HZ = 60;
+const HISTORY_WINDOW_SEC = 30;
 
 let readingActive = false;
 let permissionGranted = false;
 let deferredPrompt = null;
-let sampleHz = Number(sampleRate.value);
 let lastRender = 0;
 let eventCount = 0;
 let noDataTimer = null;
 let hasRotationRateData = false;
-let historyWindowSec = Number(historyWindow.value);
+
+let backendModelReady = false;
+let inferenceInFlight = false;
 
 const history = [];
-const maxHistoryPoints = 6000;
+const maxHistoryPoints = 8000;
+const modelBuffer = [];
+const modelBufferMaxMs = 40 * 1000;
 
 const latest = {
   acc: { x: 0, y: 0, z: 0 },
@@ -42,13 +39,35 @@ const secureForSensors = window.isSecureContext || isLocalHost;
 const hasMotionApi = typeof DeviceMotionEvent !== "undefined";
 const hasOrientationApi = typeof DeviceOrientationEvent !== "undefined";
 
-const toFixed = (n) => Number(n || 0).toFixed(2);
+const STATE_VISUAL = {
+  caminando: { icon: "/static/icons/person-walking.svg", label: "Caminando" },
+  trotando: { icon: "/static/icons/lightning-fill.svg", label: "Trotando" },
+  parado: { icon: "/static/icons/person-standing.svg", label: "Parado" },
+  sentado: { icon: "/static/icons/person-fill-down.svg", label: "Sentado" },
+  subiendo_escaleras: { icon: "/static/icons/person-fill-up.svg", label: "Subiendo escaleras" },
+  bajando_escaleras: { icon: "/static/icons/person-fill-down.svg", label: "Bajando escaleras" },
+  posible_caida_en_revision: { icon: "/static/icons/exclamation-triangle-fill.svg", label: "Posible caida" },
+  caida_detectada: { icon: "/static/icons/exclamation-triangle-fill.svg", label: "Caida detectada" },
+  esperando_mas_datos: { icon: "/static/icons/person-standing.svg", label: "Esperando datos" },
+  modelo_no_disponible: { icon: "/static/icons/exclamation-triangle-fill.svg", label: "Modelo no disponible" },
+};
 
 function setStatus(text) {
-  statusText.textContent = `Estado: ${text}`;
+  if (statusText) {
+    statusText.textContent = `Estado: ${text}`;
+  }
+}
+
+function setAction(stateKey) {
+  const visual = STATE_VISUAL[stateKey] || STATE_VISUAL.esperando_mas_datos;
+  actionIcon.src = visual.icon;
+  actionLabel.textContent = visual.label;
 }
 
 function setEnvironmentText() {
+  if (!envText) {
+    return;
+  }
   if (!secureForSensors) {
     envText.textContent =
       "Entorno: contexto no seguro. Abre la app con HTTPS para habilitar sensores en la mayoria de moviles.";
@@ -61,29 +80,43 @@ function setEnvironmentText() {
   envText.textContent = "Entorno: navegador compatible. Puedes solicitar permisos.";
 }
 
-function accMagnitude() {
-  return Math.sqrt((latest.acc.x || 0) ** 2 + (latest.acc.y || 0) ** 2 + (latest.acc.z || 0) ** 2);
-}
-
-function gyroMagnitude() {
-  return Math.sqrt(
-    (latest.gyro.alpha || 0) ** 2 + (latest.gyro.beta || 0) ** 2 + (latest.gyro.gamma || 0) ** 2,
-  );
-}
-
 function pushHistory(tsMs) {
+  const accRms = Math.sqrt(
+    ((latest.acc.x || 0) ** 2 + (latest.acc.y || 0) ** 2 + (latest.acc.z || 0) ** 2) / 3,
+  );
+  const gyroRms = Math.sqrt(
+    ((latest.gyro.alpha || 0) ** 2 + (latest.gyro.beta || 0) ** 2 + (latest.gyro.gamma || 0) ** 2) / 3,
+  );
+
   history.push({
     tsMs,
-    accMag: accMagnitude(),
-    gyroMag: gyroMagnitude(),
+    accVal: Number(accRms),
+    gyroVal: Number(gyroRms),
   });
 
-  const minTs = tsMs - historyWindowSec * 1000;
+  const minTs = tsMs - HISTORY_WINDOW_SEC * 1000;
   while (history.length > 0 && history[0].tsMs < minTs) {
     history.shift();
   }
   if (history.length > maxHistoryPoints) {
     history.splice(0, history.length - maxHistoryPoints);
+  }
+}
+
+function pushModelSample(tsMs) {
+  modelBuffer.push({
+    ts_ms: tsMs,
+    acc_x: Number(latest.acc.x || 0),
+    acc_y: Number(latest.acc.y || 0),
+    acc_z: Number(latest.acc.z || 0),
+    gyr_x: Number(latest.gyro.alpha || 0),
+    gyr_y: Number(latest.gyro.beta || 0),
+    gyr_z: Number(latest.gyro.gamma || 0),
+  });
+
+  const minTs = tsMs - modelBufferMaxMs;
+  while (modelBuffer.length > 0 && modelBuffer[0].ts_ms < minTs) {
+    modelBuffer.shift();
   }
 }
 
@@ -98,37 +131,9 @@ function setupCanvas(canvas) {
   return { ctx, width, height };
 }
 
-function drawChart(canvas, key, color, label) {
+function drawChart(canvas, key, color, label, yMin, yMax) {
   const { ctx, width, height } = setupCanvas(canvas);
-
   ctx.clearRect(0, 0, width, height);
-  ctx.strokeStyle = "rgba(200, 220, 240, 0.25)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(38, 10);
-  ctx.lineTo(38, height - 24);
-  ctx.lineTo(width - 8, height - 24);
-  ctx.stroke();
-
-  if (history.length < 2) {
-    ctx.fillStyle = "rgba(234, 244, 255, 0.85)";
-    ctx.font = "12px Segoe UI";
-    ctx.fillText("Esperando datos...", 46, Math.floor(height / 2));
-    return;
-  }
-
-  let maxVal = 0;
-  for (const point of history) {
-    if (point[key] > maxVal) {
-      maxVal = point[key];
-    }
-  }
-  const minVal = 0;
-  const yMax = maxVal > 0.01 ? maxVal * 1.1 : 1;
-
-  const t0 = history[0].tsMs;
-  const t1 = history[history.length - 1].tsMs;
-  const span = Math.max(1, t1 - t0);
 
   const plotLeft = 38;
   const plotRight = width - 8;
@@ -137,12 +142,42 @@ function drawChart(canvas, key, color, label) {
   const plotWidth = plotRight - plotLeft;
   const plotHeight = plotBottom - plotTop;
 
+  ctx.strokeStyle = "rgba(200, 220, 240, 0.25)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plotLeft, plotTop);
+  ctx.lineTo(plotLeft, plotBottom);
+  ctx.lineTo(plotRight, plotBottom);
+  ctx.stroke();
+
+  const zeroY = plotBottom - ((0 - yMin) / (yMax - yMin)) * plotHeight;
+  if (zeroY >= plotTop && zeroY <= plotBottom) {
+    ctx.strokeStyle = "rgba(200, 220, 240, 0.22)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(plotLeft, zeroY);
+    ctx.lineTo(plotRight, zeroY);
+    ctx.stroke();
+  }
+
+  if (history.length < 2) {
+    ctx.fillStyle = "rgba(234, 244, 255, 0.85)";
+    ctx.font = "12px Segoe UI";
+    ctx.fillText("Esperando datos...", 46, Math.floor(height / 2));
+    return;
+  }
+
+  const t0 = history[0].tsMs;
+  const t1 = history[history.length - 1].tsMs;
+  const span = Math.max(1, t1 - t0);
+
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.beginPath();
   history.forEach((point, idx) => {
     const tx = (point.tsMs - t0) / span;
-    const ty = (point[key] - minVal) / (yMax - minVal);
+    const clamped = Math.max(yMin, Math.min(yMax, point[key]));
+    const ty = (clamped - yMin) / (yMax - yMin);
     const x = plotLeft + tx * plotWidth;
     const y = plotBottom - ty * plotHeight;
     if (idx === 0) {
@@ -156,28 +191,23 @@ function drawChart(canvas, key, color, label) {
   ctx.fillStyle = "rgba(234, 244, 255, 0.95)";
   ctx.font = "12px Segoe UI";
   ctx.fillText(`${label}: ${history[history.length - 1][key].toFixed(2)}`, plotLeft, 22);
-  ctx.fillText(`max ${yMax.toFixed(2)}`, plotLeft, 36);
-  ctx.fillText(`${historyWindowSec}s`, plotRight - 34, plotBottom + 14);
+  ctx.fillText(`rango ${yMin}..${yMax}`, plotLeft, 36);
+  ctx.fillText("30s", plotRight - 24, plotBottom + 14);
 }
 
 function renderCharts() {
-  drawChart(accChart, "accMag", "#48d1cc", "Acc");
-  drawChart(gyroChart, "gyroMag", "#d4af37", "Gyro");
+  drawChart(accChart, "accVal", "#48d1cc", "Acc RMS", -50, 50);
+  drawChart(gyroChart, "gyroVal", "#d4af37", "Gyro RMS", -500, 500);
 }
 
 function renderData(timestampMs) {
-  const minGapMs = 1000 / sampleHz;
+  const minGapMs = 1000 / SAMPLE_HZ;
   if (timestampMs - lastRender < minGapMs) {
     return;
   }
   lastRender = timestampMs;
-  accX.textContent = toFixed(latest.acc.x);
-  accY.textContent = toFixed(latest.acc.y);
-  accZ.textContent = toFixed(latest.acc.z);
-  gyroA.textContent = toFixed(latest.gyro.alpha);
-  gyroB.textContent = toFixed(latest.gyro.beta);
-  gyroG.textContent = toFixed(latest.gyro.gamma);
   pushHistory(timestampMs);
+  pushModelSample(timestampMs);
   renderCharts();
 }
 
@@ -208,19 +238,82 @@ function onOrientation(event) {
   renderData(Date.now());
 }
 
+async function fetchModelStatus() {
+  try {
+    const response = await fetch("/api/model-status");
+    const data = await response.json();
+    backendModelReady = Boolean(data.ready);
+    if (backendModelReady) {
+      setStatus("modelo IA cargado.");
+    } else {
+      setStatus(`modelo no disponible: ${data.error || "sin detalle"}`);
+      setAction("modelo_no_disponible");
+    }
+  } catch (error) {
+    backendModelReady = false;
+    setStatus("sin conexion al backend de inferencia.");
+    setAction("modelo_no_disponible");
+  }
+}
+
+function latestSamplesForInference(secondsBack = 25) {
+  if (modelBuffer.length === 0) {
+    return [];
+  }
+  const maxTs = modelBuffer[modelBuffer.length - 1].ts_ms;
+  const minTs = maxTs - secondsBack * 1000;
+  return modelBuffer.filter((s) => s.ts_ms >= minTs);
+}
+
+async function runInference() {
+  if (!readingActive || !backendModelReady || inferenceInFlight) {
+    return;
+  }
+
+  const samples = latestSamplesForInference(25);
+  if (samples.length < 20) {
+    return;
+  }
+
+  inferenceInFlight = true;
+  try {
+    const response = await fetch("/api/infer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ samples, sample_rate_hz: SAMPLE_HZ }),
+    });
+    const data = await response.json();
+
+    if (!data.ready) {
+      setAction("modelo_no_disponible");
+      setStatus(`modelo no disponible: ${data.error || "sin detalle"}`);
+      return;
+    }
+
+    setAction(data.state || data.activity_label || "esperando_mas_datos");
+    setStatus(`estado IA: ${data.state || data.activity_label || "sin estado"}`);
+  } catch (error) {
+    setStatus("error de inferencia.");
+    setAction("modelo_no_disponible");
+  } finally {
+    inferenceInFlight = false;
+  }
+}
+
 function startReading() {
   eventCount = 0;
   hasRotationRateData = false;
   history.length = 0;
+  modelBuffer.length = 0;
   window.addEventListener("devicemotion", onMotion);
   window.addEventListener("deviceorientation", onOrientation);
   readingActive = true;
   toggleBtn.textContent = "Detener lectura";
-  setStatus(`capturando sensores a ${sampleHz} Hz.`);
+  setStatus(`capturando sensores a ${SAMPLE_HZ} Hz.`);
 
   noDataTimer = window.setTimeout(() => {
     if (readingActive && eventCount === 0) {
-      setStatus("sin eventos de sensores. Revisa HTTPS, permisos del sitio y ajustes del navegador.");
+      setStatus("sin eventos de sensores. Revisa HTTPS, permisos y ajustes del navegador.");
     }
   }, 3000);
 }
@@ -260,7 +353,7 @@ async function requestSensorPermissions() {
 
     permissionGranted = true;
     toggleBtn.disabled = false;
-    setStatus("permisos listos. Si no aparece popup, puede ser normal en Android/Chrome.");
+    setStatus("permisos listos.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "error desconocido";
     setStatus(`error de permisos: ${message}`);
@@ -279,27 +372,6 @@ toggleBtn.addEventListener("click", () => {
     return;
   }
   startReading();
-});
-
-sampleRate.addEventListener("input", (event) => {
-  sampleHz = Number(event.target.value);
-  rateLabel.textContent = String(sampleHz);
-  if (readingActive) {
-    setStatus(`capturando sensores a ${sampleHz} Hz.`);
-  }
-});
-
-historyWindow.addEventListener("input", (event) => {
-  historyWindowSec = Number(event.target.value);
-  historyLabel.textContent = String(historyWindowSec);
-  if (history.length > 0) {
-    const now = history[history.length - 1].tsMs;
-    const minTs = now - historyWindowSec * 1000;
-    while (history.length > 0 && history[0].tsMs < minTs) {
-      history.shift();
-    }
-  }
-  renderCharts();
 });
 
 window.addEventListener("beforeinstallprompt", (event) => {
@@ -327,6 +399,11 @@ if ("serviceWorker" in navigator) {
 }
 
 window.addEventListener("resize", () => renderCharts());
+setInterval(() => {
+  void runInference();
+}, 1000);
 
 setEnvironmentText();
+setAction("esperando_mas_datos");
 renderCharts();
+void fetchModelStatus();

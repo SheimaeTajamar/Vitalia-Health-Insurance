@@ -4,6 +4,7 @@ Aplicacion web para leer sensores de **aceleracion** y **giroscopio** desde movi
 - permisos de sensores desde UI
 - tasa de muestreo configurable (Hz)
 - instalacion como acceso directo (PWA)
+- inferencia en backend con modelos `.keras` (CNN actividad + RNN caidas)
 
 ## 1. Requisitos
 
@@ -105,3 +106,22 @@ cloudflared tunnel --url http://127.0.0.1:8000
 - Si no aparece popup de permisos en Android/Chrome, puede ser normal.
 - Si estado indica contexto inseguro, abrir por HTTPS o localhost del propio movil.
 - Si ves version vieja de la UI, borra datos del sitio o reinstala el acceso directo.
+
+## 11. Integracion de modelos `.keras`
+
+La app busca estos modelos automaticamente:
+
+- `../model/modelo_cnn_actividad.keras`
+- `../model/modelo_rnn_caidas.keras`
+
+Endpoints nuevos:
+
+- `GET /api/model-status` -> estado de carga de modelos
+- `POST /api/infer` -> inferencia de actividad + logica de posible caida
+
+Variables opcionales de ajuste:
+
+- `CNN_WINDOW_SECONDS` (default `2.0`)
+- `RNN_WINDOW_SECONDS` (default `20.0`)
+- `FALL_PEAK_THRESHOLD` (default `3.0`)
+- `FALL_PROBABILITY_THRESHOLD` (default `0.5`)
