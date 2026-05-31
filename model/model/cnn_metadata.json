@@ -1,0 +1,34 @@
+{
+  "model_type": "cnn_activity",
+  "dataset_prepared": true,
+  "sample_rate_hz": 64,
+  "window_seconds": 2.0,
+  "window_size": 128,
+  "window_step": 64,
+  "features": [
+    "AccX",
+    "AccY",
+    "AccZ",
+    "GyrX",
+    "GyrY",
+    "GyrZ",
+    "AccMag",
+    "GyrMag"
+  ],
+  "label_col": "activity",
+  "person_col": "person_id",
+  "sort_col": "sample_index",
+  "classes": [
+    "bajando_escaleras",
+    "caminando",
+    "parado",
+    "sentado",
+    "subiendo_escaleras",
+    "trotando"
+  ],
+  "num_classes": 6,
+  "scaler": "scaler_cnn.joblib",
+  "model": "modelo_cnn_actividad.keras",
+  "test_accuracy": 0.8885080814361572,
+  "note": "El frontend/backend deben enviar las features en el mismo orden y escala que este dataset preparado."
+}

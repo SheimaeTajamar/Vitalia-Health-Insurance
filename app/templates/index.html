@@ -10,7 +10,7 @@
   <link rel="manifest" href="/static/manifest.webmanifest">
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body>
+<body class="state-loading">
   <main class="app-shell">
     <header class="hero">
       <p class="tag">Vitalia Health Insurance</p>
@@ -39,6 +39,30 @@
       <div class="action-content">
         <img id="actionIcon" src="/static/icons/person-standing.svg" alt="icono de accion" width="80" height="80">
         <p id="actionLabel">Esperando datos</p>
+        <p id="inferenceDetails" class="inference-details">Conf: --% | Caida: --% | Pico: -- | RNN: --</p>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-item">
+          <span class="metric-label">Aceleracion total</span>
+          <strong id="metricAccTotal">0.00</strong>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Rotacion total</span>
+          <strong id="metricGyroTotal">0.00</strong>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Muestras en buffer</span>
+          <strong id="metricSamples">0</strong>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Duracion buffer</span>
+          <strong id="metricDuration">0.0s</strong>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Estado del modelo</span>
+          <strong id="metricModelStatus">Cargando...</strong>
+        </div>
       </div>
 
       <div class="chart-grid">
@@ -53,7 +77,7 @@
       </div>
     </section>
 
-    <footer class="footnote" style="display:none">
+    <footer class="footnote">
       <p id="statusText"></p>
       <p id="envText"></p>
     </footer>

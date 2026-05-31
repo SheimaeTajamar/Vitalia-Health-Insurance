@@ -122,6 +122,6 @@ Endpoints nuevos:
 Variables opcionales de ajuste:
 
 - `CNN_WINDOW_SECONDS` (default `2.0`)
-- `RNN_WINDOW_SECONDS` (default `20.0`)
+- `RNN_WINDOW_SECONDS` (default `30.0`)
 - `FALL_PEAK_THRESHOLD` (default `3.0`)
 - `FALL_PROBABILITY_THRESHOLD` (default `0.5`)

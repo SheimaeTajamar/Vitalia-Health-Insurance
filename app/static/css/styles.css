@@ -20,6 +20,7 @@ body {
     radial-gradient(circle at 15% 10%, rgba(72, 209, 204, 0.2), transparent 35%),
     radial-gradient(circle at 90% 20%, rgba(212, 175, 55, 0.18), transparent 30%),
     linear-gradient(160deg, #001327 0%, #001f3f 45%, #0c2d52 100%);
+  transition: background 220ms ease;
 }
 
 .app-shell {
@@ -145,6 +146,7 @@ input[type="range"] {
   margin-top: 1rem;
   display: flex;
   flex-direction: column;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .chart-head {
@@ -219,6 +221,82 @@ canvas {
   margin: 0;
   font-size: 1.08rem;
   font-weight: 700;
+}
+
+.inference-details {
+  margin: 0;
+  color: #c8def1;
+  font-size: 0.9rem;
+}
+
+.metrics-grid {
+  margin-bottom: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+
+.metric-item {
+  border: 1px solid rgba(72, 209, 204, 0.2);
+  border-radius: 10px;
+  background: rgba(0, 20, 40, 0.35);
+  padding: 0.6rem 0.7rem;
+}
+
+.metric-label {
+  display: block;
+  color: #c8def1;
+  font-size: 0.78rem;
+  margin-bottom: 0.2rem;
+}
+
+.metric-item strong {
+  color: #f9fbff;
+}
+
+.footnote {
+  margin-top: 1rem;
+}
+
+.state-idle .chart-card {
+  border-color: rgba(72, 209, 204, 0.35);
+}
+
+.state-sitting .chart-card {
+  border-color: rgba(130, 210, 235, 0.35);
+}
+
+.state-walking .chart-card {
+  border-color: rgba(80, 215, 174, 0.45);
+}
+
+.state-running .chart-card {
+  border-color: rgba(212, 175, 55, 0.5);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.2), 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.state-stairs-up .chart-card,
+.state-stairs-down .chart-card {
+  border-color: rgba(120, 190, 245, 0.45);
+}
+
+.state-warning .chart-card {
+  border-color: rgba(255, 183, 3, 0.65);
+  box-shadow: 0 0 0 1px rgba(255, 183, 3, 0.2), 0 12px 34px rgba(0, 0, 0, 0.35);
+}
+
+.state-danger .chart-card {
+  border-color: rgba(255, 77, 109, 0.8);
+  box-shadow: 0 0 0 1px rgba(255, 77, 109, 0.35), 0 12px 34px rgba(0, 0, 0, 0.4);
+}
+
+.state-loading .chart-card {
+  border-color: rgba(72, 209, 204, 0.25);
+}
+
+.state-error .chart-card {
+  border-color: rgba(255, 132, 132, 0.65);
+  box-shadow: 0 0 0 1px rgba(255, 132, 132, 0.25), 0 12px 34px rgba(0, 0, 0, 0.35);
 }
 
 @keyframes fade-in {

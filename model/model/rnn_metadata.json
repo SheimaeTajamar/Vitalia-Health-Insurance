@@ -1,0 +1,56 @@
+{
+  "model_type": "rnn_fall_lstm",
+  "task": "fall_detection",
+  "model": "modelo_rnn_caidas.keras",
+  "scaler": "scaler_rnn.joblib",
+  "threshold_report": "rnn_threshold_report.json",
+  "window_seconds": 30.0,
+  "window_size": 128,
+  "window_step": 32,
+  "rnn_steps": 128,
+  "features": [
+    "AccX",
+    "AccY",
+    "AccZ",
+    "GyrX",
+    "GyrY",
+    "GyrZ",
+    "AccMag",
+    "GyrMag"
+  ],
+  "num_features": 8,
+  "recommended_threshold": 0.7,
+  "threshold_metrics": {
+    "precision_fall": 0.9435304579813251,
+    "recall_fall": 0.9610507246376812,
+    "f1_fall": 0.952210006730985,
+    "false_positives": 127,
+    "false_negatives": 86,
+    "true_positives": 2122,
+    "true_negatives": 6874
+  },
+  "label_strategy": "fall_ratio_threshold",
+  "fall_ratio_threshold": 0.2,
+  "split_group": "source_file",
+  "input_order_backend": [
+    "acc_x",
+    "acc_y",
+    "acc_z",
+    "gyr_x",
+    "gyr_y",
+    "gyr_z",
+    "acc_mag",
+    "gyr_mag"
+  ],
+  "training_feature_order": [
+    "AccX",
+    "AccY",
+    "AccZ",
+    "GyrX",
+    "GyrY",
+    "GyrZ",
+    "AccMag",
+    "GyrMag"
+  ],
+  "note": "El backend debe calcular AccMag y GyrMag, usar scaler_rnn.joblib, resamplear la ventana de caída a rnn_steps y aplicar el threshold recomendado."
+}
